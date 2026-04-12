@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Undo2, RotateCcw, AlertTriangle, Trophy, Users, LogOut } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { Piece, PieceColor, Position, getValidMoves, INITIAL_BOARD, getPieceAt, checkGameState, GameState } from './lib/chessRules';
@@ -53,12 +53,27 @@ export default function App() {
   const [opponentConnected, setOpponentConnected] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const lastActionTime = useRef(0);
+  const roomInfoRef = useRef({ id: '', color: null as PieceColor | null });
+
   const currentBoard = history[currentStep];
   const isGameOver = gameState === 'checkmate' || gameState === 'stalemate';
+
+  // 更新 ref 以供 socket 監聽器使用
+  useEffect(() => {
+    roomInfoRef.current = { id: roomId, color: playerColor };
+  }, [roomId, playerColor]);
 
   // 初始化 Socket 連線
   useEffect(() => {
     socket = io();
+
+    socket.on('connect', () => {
+      const { id, color } = roomInfoRef.current;
+      if (id && color) {
+        socket?.emit('rejoin_room', { roomId: id, color });
+      }
+    });
 
     socket.on('room_created', ({ roomId, color }) => {
       setRoomId(roomId);
@@ -171,6 +186,10 @@ export default function App() {
     const isMoveValid = validMoves.some(m => m.x === x && m.y === y);
 
     if (selectedPiece && isMoveValid) {
+      const now = Date.now();
+      if (now - lastActionTime.current < 500) return; // 防連點
+      lastActionTime.current = now;
+
       const newBoard = currentBoard
         .filter(p => !(p.x === x && p.y === y))
         .map(p => p.id === selectedPiece.id ? { ...p, x, y } : p);
@@ -207,6 +226,10 @@ export default function App() {
     if (roomId && turn === playerColor) return;
 
     if (currentStep > 0) {
+      const now = Date.now();
+      if (now - lastActionTime.current < 500) return;
+      lastActionTime.current = now;
+
       const prevStep = currentStep - 1;
       const prevBoard = history[prevStep];
       const prevTurn = turn === 'red' ? 'black' : 'red';
@@ -223,6 +246,10 @@ export default function App() {
   };
 
   const handleReset = () => {
+    const now = Date.now();
+    if (now - lastActionTime.current < 500) return;
+    lastActionTime.current = now;
+
     resetGameLocally();
     broadcastState([INITIAL_BOARD], 0, 'red', 'playing');
   };
@@ -230,44 +257,45 @@ export default function App() {
   // 渲染大廳畫面
   if (!roomId) {
     return (
-      <div className="min-h-screen bg-[#f8f1e4] flex flex-col items-center justify-center py-8 font-sans">
-        <div className="bg-[#E8C382] p-8 rounded-2xl shadow-2xl border-[6px] border-[#8B4513] w-[90%] max-w-md text-center">
-          <h1 className="text-4xl font-bold text-amber-900 mb-8 tracking-wider" style={{ fontFamily: '"Kaiti", "STKaiti", serif' }}>親子中國象棋</h1>
+      <div className="min-h-screen bg-[#f8f1e4] flex flex-col items-center justify-center py-4 px-4 font-sans">
+        <div className="bg-[#E8C382] p-6 sm:p-8 rounded-3xl shadow-2xl border-[6px] border-[#8B4513] w-full max-w-md text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-amber-900 mb-8 tracking-wider" style={{ fontFamily: '"Kaiti", "STKaiti", serif' }}>親子中國象棋</h1>
           
           <div className="space-y-6">
             <button
               onClick={handleCreateRoom}
-              className="w-full py-4 bg-red-700 text-white rounded-xl font-bold text-xl shadow-md hover:bg-red-800 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 sm:py-5 bg-red-700 text-white rounded-2xl font-bold text-lg sm:text-xl shadow-lg hover:bg-red-800 active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-red-900"
             >
               <Users size={24} />
-              建立房間 (我是紅方)
+              建立新房間 (我是紅方)
             </button>
 
             <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-amber-900/30"></div>
-              <span className="flex-shrink-0 mx-4 text-amber-900/60 font-medium">或</span>
-              <div className="flex-grow border-t border-amber-900/30"></div>
+              <div className="flex-grow border-t-2 border-amber-900/20"></div>
+              <span className="flex-shrink-0 mx-4 text-amber-900/60 font-bold">或加入朋友的房間</span>
+              <div className="flex-grow border-t-2 border-amber-900/20"></div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
-                placeholder="輸入 4 碼房間代號"
+                placeholder="輸入 4 碼代號"
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-xl border-2 border-amber-900/30 bg-white/80 text-center text-xl font-bold text-amber-900 focus:outline-none focus:border-amber-900"
+                className="flex-1 px-4 py-4 rounded-2xl border-2 border-amber-900/30 bg-white/90 text-center text-2xl font-bold text-amber-900 focus:outline-none focus:border-amber-900 focus:ring-4 focus:ring-amber-900/20 transition-all placeholder:text-amber-900/30 placeholder:text-lg"
                 maxLength={4}
+                inputMode="numeric"
               />
               <button
                 onClick={handleJoinRoom}
-                disabled={!inputRoomId}
-                className="px-6 py-3 bg-slate-800 text-white rounded-xl font-bold text-xl shadow-md hover:bg-slate-900 transition-colors disabled:opacity-50"
+                disabled={!inputRoomId || inputRoomId.length !== 4}
+                className="py-4 px-8 bg-slate-800 text-white rounded-2xl font-bold text-lg sm:text-xl shadow-lg hover:bg-slate-900 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 border-b-4 border-slate-950"
               >
                 加入
               </button>
             </div>
             
-            {errorMsg && <p className="text-red-600 font-bold mt-2">{errorMsg}</p>}
+            {errorMsg && <p className="text-red-600 font-bold mt-2 bg-red-100 py-2 rounded-lg border border-red-200">{errorMsg}</p>}
           </div>
         </div>
       </div>
@@ -276,52 +304,52 @@ export default function App() {
 
   // 渲染遊戲畫面
   return (
-    <div className="min-h-screen bg-[#f8f1e4] flex flex-col items-center py-8 font-sans relative">
-      <div className="mb-4 w-full max-w-[480px] px-4 flex justify-between items-center">
-        <button onClick={handleLeaveRoom} className="flex items-center gap-2 text-amber-900/60 hover:text-amber-900 transition-colors font-medium">
-          <LogOut size={18} /> 離開房間
+    <div className="min-h-screen bg-[#f8f1e4] flex flex-col items-center py-4 sm:py-8 font-sans relative px-2">
+      <div className="mb-2 sm:mb-4 w-full max-w-[480px] flex justify-between items-center bg-white/40 p-2 rounded-xl border border-amber-200/50 shadow-sm">
+        <button onClick={handleLeaveRoom} className="flex items-center gap-1 sm:gap-2 text-amber-900/70 hover:text-amber-900 transition-colors font-bold text-sm sm:text-base bg-white px-3 py-1.5 rounded-lg shadow-sm border border-amber-200">
+          <LogOut size={16} /> 離開
         </button>
-        <div className="text-amber-900 font-bold bg-amber-200/50 px-3 py-1 rounded-lg border border-amber-300">
-          房間代碼: <span className="text-xl tracking-widest">{roomId}</span>
+        <div className="text-amber-900 font-bold bg-amber-200/50 px-3 py-1.5 rounded-lg border border-amber-300 text-sm sm:text-base flex items-center gap-2">
+          房間代碼 <span className="text-lg sm:text-xl tracking-widest bg-white px-2 rounded text-amber-700 shadow-inner">{roomId}</span>
         </div>
       </div>
 
-      <div className="mb-4 text-center">
-        <h1 className="text-3xl font-bold text-amber-900 mb-2 tracking-wider">親子中國象棋</h1>
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-lg font-medium text-amber-700 bg-amber-100/50 inline-block px-4 py-1 rounded-full border border-amber-200">
-            現在輪到：<span className={turn === 'red' ? 'text-red-600 font-bold' : 'text-slate-900 font-bold'}>{turn === 'red' ? '紅方' : '黑方'}</span>
+      <div className="mb-3 sm:mb-4 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-amber-900 mb-2 tracking-wider">親子中國象棋</h1>
+        <div className="flex items-center justify-center gap-3">
+          <p className="text-sm sm:text-base font-medium text-amber-800 bg-amber-100/80 px-3 py-1 rounded-full border border-amber-300 shadow-sm">
+            輪到：<span className={turn === 'red' ? 'text-red-600 font-bold text-base sm:text-lg' : 'text-slate-900 font-bold text-base sm:text-lg'}>{turn === 'red' ? '紅方' : '黑方'}</span>
           </p>
-          <p className="text-sm font-bold">
-            你是：<span className={playerColor === 'red' ? 'text-red-600' : 'text-slate-900'}>{playerColor === 'red' ? '紅方' : '黑方'}</span>
-            {!opponentConnected && <span className="ml-2 text-amber-600 animate-pulse">(等待對手加入...)</span>}
+          <p className="text-sm sm:text-base font-medium text-amber-800 bg-white/60 px-3 py-1 rounded-full border border-amber-200 shadow-sm">
+            你是：<span className={playerColor === 'red' ? 'text-red-600 font-bold' : 'text-slate-900 font-bold'}>{playerColor === 'red' ? '紅方' : '黑方'}</span>
           </p>
         </div>
+        {!opponentConnected && <p className="mt-2 text-sm font-bold text-red-600 animate-pulse bg-red-100 inline-block px-3 py-1 rounded-full border border-red-200">等待對手連線中...</p>}
       </div>
 
       {gameState === 'check' && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-3 rounded-full shadow-xl font-bold text-xl flex items-center gap-2 animate-bounce z-50 border-2 border-red-200">
-          <AlertTriangle size={24} />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-full shadow-xl font-bold text-lg sm:text-xl flex items-center gap-2 animate-bounce z-50 border-2 border-red-200">
+          <AlertTriangle size={20} />
           將軍！
         </div>
       )}
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-2 sm:gap-4 mb-4 w-full max-w-[340px] sm:max-w-[480px]">
         <button
           onClick={handleUndo}
           disabled={currentStep === 0 || turn === playerColor || !opponentConnected}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-amber-300 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-amber-900 font-bold"
+          className="flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 py-2.5 sm:py-3 bg-white border-2 border-amber-300 rounded-xl shadow-sm hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-amber-900 font-bold text-sm sm:text-base"
           title={turn === playerColor ? "只能在對手回合悔棋" : ""}
         >
-          <Undo2 size={20} />
+          <Undo2 size={18} />
           悔棋
         </button>
         <button
           onClick={handleReset}
           disabled={!opponentConnected}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-red-200 rounded-xl shadow-sm hover:bg-red-50 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-red-700 font-bold"
+          className="flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 py-2.5 sm:py-3 bg-white border-2 border-red-200 rounded-xl shadow-sm hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-red-700 font-bold text-sm sm:text-base"
         >
-          <RotateCcw size={20} />
+          <RotateCcw size={18} />
           重新開始
         </button>
       </div>

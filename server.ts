@@ -56,6 +56,19 @@ async function startServer() {
       socket.to(roomId).emit("player_joined", "black");
     });
 
+    // 重新連線 (處理手機休眠或切換 App 導致的斷線)
+    socket.on("rejoin_room", ({ roomId, color }) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        socket.join(roomId);
+        room.players[color] = socket.id;
+        socket.emit("room_joined", { roomId, color, gameState: room.gameState });
+        socket.to(roomId).emit("player_joined", color);
+      } else {
+        socket.emit("error", "房間已解散，請重新建立");
+      }
+    });
+
     // 同步遊戲狀態（移動棋子、悔棋、重置）
     socket.on("sync_state", ({ roomId, state }) => {
       const room = rooms.get(roomId);
@@ -66,14 +79,16 @@ async function startServer() {
       }
     });
 
+    // 斷線處理 (不立刻刪除房間，保留讓玩家重新連線的機會)
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
-      // 簡單清理：如果玩家斷線，尋找他所在的房間並通知對手
       for (const [roomId, room] of rooms.entries()) {
-        if (room.players.red === socket.id || room.players.black === socket.id) {
+        if (room.players.red === socket.id) {
+          room.players.red = null;
           socket.to(roomId).emit("player_disconnected");
-          rooms.delete(roomId); // 為了簡單起見，一人斷線就關閉房間
-          break;
+        } else if (room.players.black === socket.id) {
+          room.players.black = null;
+          socket.to(roomId).emit("player_disconnected");
         }
       }
     });
