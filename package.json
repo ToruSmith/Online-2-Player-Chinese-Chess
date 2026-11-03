@@ -30,7 +30,7 @@
     "@types/ws": "^8.5.13",
     "esbuild": "^0.28.2",
     "playwright": "^1.63.0",
-    "prettier": "^3.8.1",
+    "prettier": "3.8.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tsx": "^4.23.12",

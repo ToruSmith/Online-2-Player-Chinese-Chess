@@ -15,6 +15,11 @@ jobs:
           node-version-file: .nvmrc
       # 提交 package-lock.json 之後，可以改成 npm ci。
       - run: npm install
+      # 只列出結果，不讓第三方漏洞公告擋住與本次變更無關的 PR。
+      - run: npm audit --omit=dev
+        continue-on-error: true
+      - run: npm audit
+        continue-on-error: true
       - run: npm run lint
       - run: npm test
       - run: npm run build
