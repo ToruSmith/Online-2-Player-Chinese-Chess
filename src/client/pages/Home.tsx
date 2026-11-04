@@ -9,6 +9,8 @@ import { loadRecords } from '../lib/records';
 import { trackPieces } from '../lib/pieces';
 import { Link } from '../lib/router';
 
+const HUB_URL = 'https://torusmith.github.io/QiguanGamets/';
+
 const MODES = [
   {
     to: '/online',
@@ -85,6 +87,9 @@ export function Home() {
           <Icon name="gear" size={18} />
           設定
         </Link>
+        <a href={HUB_URL} className="home__settings">
+          回手談棋館
+        </a>
       </nav>
     </main>
   );
