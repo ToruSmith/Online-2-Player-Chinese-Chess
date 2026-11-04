@@ -431,7 +431,8 @@ export function searchBestMove(game: Game, limits: SearchLimits): SearchResult |
   const safe = legal.filter((move) => {
     if (excluded.has(move)) return false;
     const next = playMove(game, moveFrom(move), moveTo(move));
-    return next?.outcome?.reason !== 'perpetual-check';
+    const reason = next?.outcome?.reason;
+    return reason !== 'perpetual-check' && reason !== 'perpetual-chase';
   });
   const candidates = safe.length > 0 ? safe : legal;
   if (candidates.length === 1) {
