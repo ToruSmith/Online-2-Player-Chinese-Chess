@@ -1,5 +1,12 @@
 # 第三方素材
 
+## npm 套件
+
+- `react`、`react-dom`（打包進前端）：MIT
+- `ws`、`zod`（伺服器執行期）：MIT
+
+新增或升級依賴時要同步更新這份清單。
+
 ## Noto Serif CJK TC
 
 `src/client/components/glyphs.ts` 中的棋子與標題字形由 Noto Serif CJK TC 轉換而來。
