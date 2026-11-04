@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { PlayedMove } from '../../engine';
+import type { MoveQuality } from '../../engine/ai/review';
 
 interface MoveLogProps {
   moves: readonly PlayedMove[];
@@ -7,10 +8,12 @@ interface MoveLogProps {
   blackFirst?: boolean;
   current?: number;
   onSelect?: (ply: number) => void;
+  /** 賽後分析的評語，第 i 項是第 i + 1 步。 */
+  qualities?: readonly MoveQuality[];
 }
 
 /** 棋譜紙：每一列是一個回合，左紅右黑。 */
-export function MoveLog({ moves, blackFirst = false, current, onSelect }: MoveLogProps) {
+export function MoveLog({ moves, blackFirst = false, current, onSelect, qualities }: MoveLogProps) {
   const end = useRef<HTMLOListElement>(null);
 
   useEffect(() => {
@@ -42,6 +45,7 @@ export function MoveLog({ moves, blackFirst = false, current, onSelect }: MoveLo
                 key={ply}
                 type="button"
                 className="log__move"
+                data-quality={qualities?.[ply - 1]}
                 aria-current={ply === current ? 'true' : undefined}
                 onClick={() => onSelect(ply)}
               >
