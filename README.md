@@ -150,4 +150,4 @@ tests/
 
 ## 授權
 
-本專案尚未指定授權條款。使用的第三方素材請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，版本變更請見 [CHANGELOG.md](CHANGELOG.md)。
+本專案的程式碼未採用開源授權，著作權由作者保留。使用的第三方素材請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，版本變更請見 [CHANGELOG.md](CHANGELOG.md)。
