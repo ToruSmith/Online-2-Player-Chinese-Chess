@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { MoveLog } from '../components/MoveLog';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerPlate } from '../components/PlayerPlate';
+import { ReviewPanel } from '../components/ReviewPanel';
 import { COLOR_NAME, outcomeTitle, reasonText } from '../lib/copy';
 import { boardAt, capturedBy, trackPieces } from '../lib/pieces';
 import {
@@ -16,6 +17,7 @@ import {
   loadRecords,
 } from '../lib/records';
 import { Link, navigate } from '../lib/router';
+import { useReview } from '../lib/useReview';
 
 const MODE_NAME: Record<RecordMode, string> = {
   online: '線上',
@@ -88,6 +90,7 @@ export function Replay({ id }: { id: string }) {
   const [ply, setPly] = useState(0);
   const [copied, setCopied] = useState(false);
   const total = game?.moves.length ?? 0;
+  const { review, start } = useReview(game);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -142,7 +145,9 @@ export function Replay({ id }: { id: string }) {
           lastMove={game.moves[ply - 1]}
         />
       }
-      log={<MoveLog moves={game.moves} current={ply} onSelect={setPly} />}
+      log={
+        <MoveLog moves={game.moves} current={ply} onSelect={setPly} qualities={review.qualities} />
+      }
       notice={<p className="notice">{reasonText(record.reason)}</p>}
       actions={
         <>
@@ -189,6 +194,7 @@ export function Replay({ id }: { id: string }) {
               <Icon name="last" />
             </button>
           </div>
+          <ReviewPanel game={game} review={review} ply={ply} onStart={start} />
           <ActionButton
             icon={copied ? 'check' : 'copy'}
             label={copied ? '已複製' : '複製棋譜'}

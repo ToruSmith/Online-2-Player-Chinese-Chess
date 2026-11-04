@@ -3,13 +3,13 @@ import type { EngineRequest, EngineResponse } from './engineProtocol';
 
 let worker: Worker | null = null;
 let nextId = 1;
-const pending = new Map<number, (move: number | null) => void>();
+const pending = new Map<number, (response: EngineResponse) => void>();
 
 function engine(): Worker {
   if (worker) return worker;
   worker = new Worker(__ENGINE_WORKER_URL__, { type: 'module' });
   worker.onmessage = (event: MessageEvent<EngineResponse>) => {
-    pending.get(event.data.id)?.(event.data.result);
+    pending.get(event.data.id)?.(event.data);
     pending.delete(event.data.id);
   };
   return worker;
@@ -17,7 +17,7 @@ function engine(): Worker {
 
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 
-function ask(request: WithoutId<EngineRequest>): Promise<number | null> {
+function send(request: WithoutId<EngineRequest>): Promise<EngineResponse> {
   return new Promise((resolve) => {
     const id = nextId++;
     pending.set(id, resolve);
@@ -25,10 +25,18 @@ function ask(request: WithoutId<EngineRequest>): Promise<number | null> {
   });
 }
 
+const ask = async (request: WithoutId<EngineRequest>): Promise<number | null> =>
+  (await send(request)).result;
+
 type Line = { fen: string; moves: [number, number][] };
 
 export const askMove = (line: Line, level: LevelId) => ask({ type: 'move', ...line, level });
 export const askHint = (line: Line) => ask({ type: 'hint', ...line });
+/** 賽後分析：回傳這個局面的分數與電腦建議的走法。 */
+export async function askEvaluate(line: Line) {
+  const { result, score } = await send({ type: 'evaluate', ...line });
+  return { move: result, score: score ?? null };
+}
 /** 回傳 1 代表這一步仍能在剩餘步數內取勝。 */
 export const askPuzzleCheck = (line: Line, left: number) =>
   ask({ type: 'puzzle-check', ...line, left });
