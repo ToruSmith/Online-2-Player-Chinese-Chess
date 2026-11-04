@@ -9,6 +9,7 @@ import {
   opposite,
   sideOf,
 } from './constants';
+import { isChasingMove } from './chase';
 import { parseFen, toFen } from './fen';
 import { encodeMove, hasLegalMove, isInCheck, legalMoves } from './moves';
 import { moveNotation } from './notation';
@@ -17,6 +18,7 @@ export type EndReason =
   | 'checkmate'
   | 'stalemate'
   | 'perpetual-check'
+  | 'perpetual-chase'
   | 'repetition'
   | 'no-capture'
   | 'insufficient'
@@ -142,7 +144,8 @@ function detectOutcome(game: Game): Outcome | null {
 
 /**
  * 同一局面第三次出現時結束對局。這段循環裡若只有一方每步都在將軍，
- * 該方以「長將」判負；其他情況判和。
+ * 該方以「長將」判負；若只有一方每步都在將軍或捉子，且至少捉了一次，
+ * 該方以「長捉」判負；其他情況判和。
  */
 function detectRepetition(game: Game): Outcome | null {
   const current = game.positions[game.positions.length - 1];
@@ -152,7 +155,8 @@ function detectRepetition(game: Game): Outcome | null {
   });
   if (occurrences.length < REPETITION_LIMIT) return null;
 
-  const cycle = game.moves.slice(occurrences[occurrences.length - REPETITION_LIMIT]);
+  const start = occurrences[occurrences.length - REPETITION_LIMIT]!;
+  const cycle = game.moves.slice(start);
   const alwaysChecks = (color: Color): boolean => {
     const own = cycle.filter((move) => colorOf(move.piece > 0 ? 1 : -1) === color);
     return own.length > 0 && own.every((move) => move.check);
@@ -160,7 +164,28 @@ function detectRepetition(game: Game): Outcome | null {
   const red = alwaysChecks('red');
   const black = alwaysChecks('black');
   if (red !== black) return { winner: red ? 'black' : 'red', reason: 'perpetual-check' };
+
+  const redChases = alwaysForces(game, start, 'red');
+  const blackChases = alwaysForces(game, start, 'black');
+  if (redChases !== blackChases) {
+    return { winner: redChases ? 'black' : 'red', reason: 'perpetual-chase' };
+  }
   return { winner: null, reason: 'repetition' };
+}
+
+/** `color` 在循環裡每步都將軍或捉子，而且至少捉了一次。 */
+function alwaysForces(game: Game, start: number, color: Color): boolean {
+  let chases = 0;
+  for (let index = start; index < game.moves.length; index += 1) {
+    const move = game.moves[index]!;
+    if (colorOf(move.piece > 0 ? 1 : -1) !== color) continue;
+    const before = parseFen(game.positions[index]!).board;
+    const after = parseFen(game.positions[index + 1]!).board;
+    const chasing = isChasingMove(before, after, sideOf(color));
+    if (chasing) chases += 1;
+    else if (!move.check) return false;
+  }
+  return chases > 0;
 }
 
 /** 雙方都只剩不能過河的棋子時，誰也將不死對方。 */

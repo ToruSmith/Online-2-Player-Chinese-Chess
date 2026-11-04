@@ -199,3 +199,30 @@ describe('讓子', () => {
     assert.equal(handicapFen('red', 'none'), createGame().initialFen);
   });
 });
+
+describe('長捉', () => {
+  const start = (extra = '9') => createGame(`5k3/9/${extra}/4n4/9/2R6/9/9/9/3K5 w`);
+  const CYCLE: [number, number][] = [
+    [toSquare(2, 5), toSquare(4, 5)],
+    [toSquare(4, 3), toSquare(2, 2)],
+    [toSquare(4, 5), toSquare(2, 5)],
+    [toSquare(2, 2), toSquare(4, 3)],
+  ];
+  const playCycles = (game: Game, cycles: number): Game => {
+    let current = game;
+    for (let round = 0; round < cycles; round += 1) {
+      for (const [from, to] of CYCLE) current = playMove(current, from, to) ?? current;
+    }
+    return current;
+  };
+
+  test('車一直追沒有保護的馬，追的一方判負', () => {
+    const game = playCycles(start(), 2);
+    assert.deepEqual(game.outcome, { winner: 'black', reason: 'perpetual-chase' });
+  });
+
+  test('被追的棋子有保護就不算捉，判和', () => {
+    const game = playCycles(start('r8'), 2);
+    assert.deepEqual(game.outcome, { winner: null, reason: 'repetition' });
+  });
+});

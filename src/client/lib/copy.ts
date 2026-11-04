@@ -6,6 +6,7 @@ const REASON_TEXT: Record<EndReason, string> = {
   checkmate: '絕殺',
   stalemate: '困斃，無子可走判負',
   'perpetual-check': '長將判負',
+  'perpetual-chase': '長捉判負',
   repetition: '同一局面重複三次',
   'no-capture': '連續 60 回合沒有吃子',
   insufficient: '雙方都沒有能過河的棋子',
