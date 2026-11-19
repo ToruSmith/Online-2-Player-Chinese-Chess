@@ -83,9 +83,9 @@ sequenceDiagram
 ### 安全措施
 
 - 所有輸入都經過 zod 驗證，單則訊息上限 2 KB。
-- 每條連線、每個來源位址都有權杖桶限流，降低猜房號的效率。
+- 每條連線、每個來源位址都有權杖桶限流，降低猜房號的效率；同一個位址同時最多 50 條連線（`MAX_CONNECTIONS_PER_ADDRESS`）。
 - WebSocket 檢查 Origin，防止跨站劫持。
-- 靜態檔案設定 CSP 與 `nosniff`，並阻擋路徑穿越。
+- 靜態檔案設定 CSP、`nosniff` 與 `Permissions-Policy`，並阻擋路徑穿越；經由可信代理的 HTTPS 連線另外加上 HSTS。
 
 ## AI
 

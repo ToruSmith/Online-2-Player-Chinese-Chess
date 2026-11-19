@@ -5,6 +5,8 @@ export interface ServerConfig {
   allowedOrigins: string[];
   trustProxy: boolean;
   maxRooms: number;
+  /** 同一個來源位址最多同時保持幾條 WebSocket 連線。 */
+  maxConnectionsPerAddress: number;
   roomIdleTtlMs: number;
   /** 開發模式下允許的即時重載來源。 */
   devReloadOrigin: string | null;
@@ -26,6 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       .filter(Boolean),
     trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
     maxRooms: positiveInt(env.MAX_ROOMS, 2000),
+    maxConnectionsPerAddress: positiveInt(env.MAX_CONNECTIONS_PER_ADDRESS, 50),
     roomIdleTtlMs: positiveInt(env.ROOM_IDLE_TTL_MINUTES, 30) * 60_000,
     devReloadOrigin: env.DEV_RELOAD_ORIGIN ?? null,
   };
