@@ -24,7 +24,7 @@
 | 注入腳本、被其他網站嵌入     | CSP（`script-src 'self'`、`frame-ancestors 'self'`）、`nosniff`、`Permissions-Policy` |
 | 降級成 HTTP                  | 經由可信代理的 HTTPS 連線加上 HSTS                                                    |
 
-`tests/server/` 用真實的 WebSocket 連線測試上述防護。每週的巡檢（`.github/workflows/health.yml`）會檢查正式網站、
+`tests/server/` 用真實的 WebSocket 連線測試上述防護。每月的巡檢（`.github/workflows/health.yml`）會檢查正式網站、
 `/healthz` 與執行期套件的安全公告。
 
 ## 已知限制

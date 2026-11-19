@@ -12,7 +12,7 @@
 
 - 同一個位址的 WebSocket 連線數上限（預設 50，`MAX_CONNECTIONS_PER_ADDRESS`）
 - 回應加上 `Permissions-Policy`；經由可信代理的 HTTPS 連線加上 HSTS
-- 新增每週巡檢（`.github/workflows/health.yml`）：檢查正式網站、健康檢查與安全公告
+- 新增每月巡檢（`.github/workflows/health.yml`）：檢查正式網站、健康檢查與安全公告
 - 新增玩家指南、安全政策；給 AI 工程師的規則移到 `AGENTS.md`
 
 ## 2.0.0

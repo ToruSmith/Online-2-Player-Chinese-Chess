@@ -39,7 +39,7 @@ React 19、TypeScript（strict）、esbuild、自訂 CSS、Node.js 內建 HTTP +
 | `npm run format`   | Prettier 排版，不手動調整                                                           |
 
 改完程式後 `npm run lint`、`npm test`、`npm run test:e2e` 都要通過。CI（`.github/workflows/ci.yml`）在每次推送都會跑；
-`health.yml` 每週檢查正式網站、`/healthz` 與安全公告。
+`health.yml` 每月檢查正式網站、`/healthz` 與安全公告。
 
 ## 分層
 
