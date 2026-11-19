@@ -1,6 +1,6 @@
 {
   "name": "family-xiangqi",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "親子中國象棋：可線上對戰、與 AI 練習、學棋與解殘局的網頁遊戲",
   "type": "module",

@@ -74,6 +74,12 @@ export class Gateway {
         socket.destroy();
         return;
       }
+      // 同一個位址開太多連線多半是程式或攻擊，先擋下，避免耗盡記憶體。
+      if (this.connectionsFrom(this.addressOf(request)) >= config.maxConnectionsPerAddress) {
+        socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+        socket.destroy();
+        return;
+      }
       this.server.handleUpgrade(request, socket, head, (client) => this.accept(client, request));
     });
     this.timers.push(
@@ -89,6 +95,12 @@ export class Gateway {
       return forwarded.split(',').at(-1)!.trim();
     }
     return request.socket.remoteAddress ?? 'unknown';
+  }
+
+  private connectionsFrom(address: string): number {
+    let count = 0;
+    for (const connection of this.connections) if (connection.address === address) count += 1;
+    return count;
   }
 
   private accept(socket: WebSocket, request: IncomingMessage): void {

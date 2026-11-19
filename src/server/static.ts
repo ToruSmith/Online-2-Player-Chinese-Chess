@@ -17,6 +17,9 @@ const MIME_TYPES: Record<string, string> = {
   '.map': 'application/json; charset=utf-8',
 };
 
+/** 用不到的裝置權限一律關閉。 */
+const PERMISSIONS_POLICY = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()';
+
 function contentSecurityPolicy(config: ServerConfig): string {
   const reload = config.devReloadOrigin ? ` ${config.devReloadOrigin}` : '';
   return [
@@ -65,6 +68,11 @@ export function createStaticHandler(config: ServerConfig) {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Content-Security-Policy', policy);
+    response.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+    // 只有確定是經由可信代理的 HTTPS 連進來時才要求瀏覽器之後都用 HTTPS，本機開發不受影響。
+    if (config.trustProxy && request.headers['x-forwarded-proto'] === 'https') {
+      response.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.writeHead(405, { Allow: 'GET, HEAD' }).end();

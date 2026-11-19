@@ -1,0 +1,61 @@
+name: Health
+
+# 每週巡檢：正式網站還活著、健康檢查正常、執行期套件沒有高風險的安全公告。
+# 失敗時 GitHub 會寄信通知儲存庫擁有者。也可以在 Actions 頁面手動執行（Run workflow）。
+# 注意：儲存庫 60 天沒有任何提交時，GitHub 會自動停用排程，到 Actions 頁面按「Enable workflow」即可恢復。
+on:
+  schedule:
+    - cron: '53 1 * * 1' # 每週一 09:53（台灣時間）
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 要檢查的網址（留空是正式網址）
+        required: false
+  push:
+    paths: ['.github/workflows/health.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SITE: ${{ inputs.url || 'https://online-2-player-chinese-chess.onrender.com/' }}
+    steps:
+      - name: 叫醒伺服器（Render 免費方案閒置會休眠，最多等五分鐘）
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null --max-time 20 "${SITE%/}/healthz"; then exit 0; fi
+            sleep 10
+          done
+          echo "等了五分鐘還是連不上 $SITE"; exit 1
+      - name: 健康檢查
+        run: |
+          body=$(curl -fsS "${SITE%/}/healthz")
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"'
+      - name: 首頁與安全標頭
+        run: |
+          headers=$(curl -fsS -D - -o page.html "$SITE")
+          echo "$headers"
+          grep -q '<title>' page.html
+          echo "$headers" | grep -qi '^content-security-policy:.*script-src'
+          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+      - name: manifest 與 Service Worker
+        run: |
+          curl -fsS -o /dev/null "${SITE%/}/manifest.webmanifest"
+          curl -fsS -o /dev/null "${SITE%/}/sw.js"
+      - uses: actions/checkout@v5
+        if: ${{ !cancelled() }}
+      - uses: actions/setup-node@v5
+        if: ${{ !cancelled() }}
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: 執行期套件的安全公告
+        if: ${{ !cancelled() }}
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high

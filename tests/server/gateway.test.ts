@@ -313,6 +313,10 @@ describe('HTTP', () => {
     assert.match(await response.text(), /<title>測試/);
     assert.match(response.headers.get('content-security-policy') ?? '', /default-src 'self'/);
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.match(response.headers.get('permissions-policy') ?? '', /camera=\(\)/);
+    // 沒有設定 TRUST_PROXY 時，不相信用戶端自己帶的 X-Forwarded-Proto
+    const spoofed = await fetch(url('/'), { headers: { 'X-Forwarded-Proto': 'https' } });
+    assert.equal(spoofed.headers.get('strict-transport-security'), null);
   });
 
   test('找不到的資源回傳 404，不會回 index.html', async () => {
@@ -328,5 +332,56 @@ describe('HTTP', () => {
   test('只接受 GET 與 HEAD', async () => {
     assert.equal((await fetch(url('/'), { method: 'POST' })).status, 405);
     assert.equal((await fetch(url('/hello.txt'), { method: 'HEAD' })).status, 200);
+  });
+});
+
+describe('連線數上限', () => {
+  test('同一個位址的連線數超過上限會被拒絕，關掉後可以再連', async () => {
+    const limited = createApp({ ...loadConfig({}), clientDir, maxConnectionsPerAddress: 2 });
+    await new Promise<void>((resolve) => limited.server.listen(0, '127.0.0.1', resolve));
+    const limitedPort = (limited.server.address() as AddressInfo).port;
+    const open = () =>
+      new Promise<{ socket: WebSocket; status: number }>((resolve) => {
+        const socket = new WebSocket(`ws://127.0.0.1:${limitedPort}/ws`);
+        socket.once('open', () => resolve({ socket, status: 101 }));
+        socket.once('unexpected-response', (_request, response) =>
+          resolve({ socket, status: response.statusCode ?? 0 }),
+        );
+        socket.once('error', () => resolve({ socket, status: -1 }));
+      });
+    try {
+      const first = await open();
+      const second = await open();
+      assert.equal(first.status, 101);
+      assert.equal(second.status, 101);
+      const third = await open();
+      assert.ok(third.status === 429 || third.status === -1);
+
+      const closed = new Promise((resolve) => first.socket.once('close', resolve));
+      first.socket.close();
+      await closed;
+      // 伺服器端處理 close 事件需要一點時間
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const again = await open();
+      assert.equal(again.status, 101);
+      second.socket.close();
+      again.socket.close();
+    } finally {
+      await limited.close();
+    }
+  });
+
+  test('經過可信代理的 HTTPS 連線會加上 HSTS', async () => {
+    const proxied = createApp({ ...loadConfig({}), clientDir, trustProxy: true });
+    await new Promise<void>((resolve) => proxied.server.listen(0, '127.0.0.1', resolve));
+    const proxiedPort = (proxied.server.address() as AddressInfo).port;
+    try {
+      const response = await fetch(`http://127.0.0.1:${proxiedPort}/`, {
+        headers: { 'X-Forwarded-Proto': 'https' },
+      });
+      assert.match(response.headers.get('strict-transport-security') ?? '', /max-age=/);
+    } finally {
+      await proxied.close();
+    }
   });
 });
